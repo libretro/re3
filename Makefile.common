@@ -1,0 +1,101 @@
+ifeq ($(LIBRETRO_COMM_DIR),)
+LIBRETRO_COMM_DIR  = $(CORE_DIR)/src/libretro-common
+endif
+INCLUDES   :=  \
+	$(CORE_DIR)/vendor/librw \
+	$(CORE_DIR)/vendor/librw/src \
+	$(CORE_DIR)/vendor/librw/src/gl \
+	$(CORE_DIR)/vendor/librw/src/d3d \
+	$(CORE_DIR)/vendor/librw/src/lodepng \
+	$(CORE_DIR)/vendor/librw/src/ps2 \
+	$(CORE_DIR)/vendor/libsndfile \
+	$(CORE_DIR)/vendor/mpg123 \
+	$(CORE_DIR)/vendor/openal-soft \
+	$(CORE_DIR)/vendor/glew \
+	$(LIBRETRO_COMM_DIR)/include \
+	$(CORE_DIR)/src/animation \
+	$(CORE_DIR)/src/audio \
+	$(CORE_DIR)/src/audio/oal \
+	$(CORE_DIR)/src/audio/eax \
+	$(CORE_DIR)/src/control \
+	$(CORE_DIR)/src/core \
+	$(CORE_DIR)/src/entities \
+	$(CORE_DIR)/src/math \
+	$(CORE_DIR)/src/modelinfo \
+	$(CORE_DIR)/src/objects \
+	$(CORE_DIR)/src/peds \
+	$(CORE_DIR)/src/render \
+	$(CORE_DIR)/src/rw \
+	$(CORE_DIR)/src/save \
+	$(CORE_DIR)/src/skel \
+	$(CORE_DIR)/src/skel/glfw \
+	$(CORE_DIR)/src/text \
+	$(CORE_DIR)/src/vehicles \
+	$(CORE_DIR)/src/weapons \
+	$(CORE_DIR)/src/extras \
+	$(CORE_DIR)/src/fakerw
+
+INCFLAGS   := $(foreach dir,$(INCLUDES), -I$(dir))
+	
+SRC_LIBRETRO := \
+	$(LIBRETRO_COMM_DIR)/file/retro_dirent.c \
+	$(LIBRETRO_COMM_DIR)/encodings/encoding_utf.c \
+	$(LIBRETRO_COMM_DIR)/string/stdstring.c \
+	$(LIBRETRO_COMM_DIR)/file/file_path.c \
+	$(LIBRETRO_COMM_DIR)/compat/fopen_utf8.c \
+	$(LIBRETRO_COMM_DIR)/compat/compat_strl.c \
+	$(LIBRETRO_COMM_DIR)/compat/compat_posix_string.c \
+	$(LIBRETRO_COMM_DIR)/compat/compat_strcasestr.c \
+	$(LIBRETRO_COMM_DIR)/compat/compat_snprintf.c \
+	$(LIBRETRO_COMM_DIR)/features/features_cpu.c \
+	$(LIBRETRO_COMM_DIR)/streams/file_stream.c \
+	$(LIBRETRO_COMM_DIR)/vfs/vfs_implementation.c \
+	$(LIBRETRO_COMM_DIR)/rthreads/rthreads.c \
+	$(LIBRETRO_COMM_DIR)/net/net_compat.c \
+	$(LIBRETRO_COMM_DIR)/net/net_socket.c \
+	$(LIBRETRO_COMM_DIR)/glsym/rglgen.c \
+	$(LIBRETRO_COMM_DIR)/glsym/glsym_gl.c \
+	$(LIBRETRO_COMM_DIR)/glsm/glsm.c
+
+SOURCES_DIR = \
+	$(CORE_DIR)/vendor/glew \
+	$(CORE_DIR)/vendor/librw/src \
+	$(CORE_DIR)/vendor/librw/src/gl \
+	$(CORE_DIR)/vendor/librw/src/d3d \
+	$(CORE_DIR)/vendor/librw/src/lodepng \
+	$(CORE_DIR)/vendor/librw/src/ps2 \
+	$(CORE_DIR)/vendor/libsndfile \
+	$(CORE_DIR)/vendor/mpg123 \
+	$(CORE_DIR)/vendor/openal-soft \
+	$(CORE_DIR)/src/animation \
+	$(CORE_DIR)/src/audio \
+	$(CORE_DIR)/src/audio/oal \
+	$(CORE_DIR)/src/audio/eax \
+	$(CORE_DIR)/src/control \
+	$(CORE_DIR)/src/core \
+	$(CORE_DIR)/src/entities \
+	$(CORE_DIR)/src/math \
+	$(CORE_DIR)/src/modelinfo \
+	$(CORE_DIR)/src/objects \
+	$(CORE_DIR)/src/peds \
+	$(CORE_DIR)/src/render \
+	$(CORE_DIR)/src/rw \
+	$(CORE_DIR)/src/save \
+	$(CORE_DIR)/src/skel \
+	$(CORE_DIR)/src/skel/glfw \
+	$(CORE_DIR)/src/text \
+	$(CORE_DIR)/src/vehicles \
+	$(CORE_DIR)/src/weapons \
+	$(CORE_DIR)/src/extras \
+	$(CORE_DIR)/src/fakerw
+	
+DIRS_C  := $(foreach dir,$(SOURCES_DIR), $(wildcard $(dir)/*.c))
+DIRS_CPP  := $(foreach dir,$(SOURCES_DIR), $(wildcard $(dir)/*.cpp))
+
+SOURCES_CXX	:=\
+	$(DIRS_CPP)
+
+SOURCES_C	:=\
+	$(SRC_GLAD) \
+	$(SRC_LIBRETRO) \
+	$(DIRS_C)
