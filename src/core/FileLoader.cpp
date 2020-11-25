@@ -11,7 +11,6 @@
 #include "HandlingMgr.h"
 #include "CarCtrl.h"
 #include "PedType.h"
-#include "PedStats.h"
 #include "AnimManager.h"
 #include "Game.h"
 #include "RwHelper.h"
@@ -332,6 +331,16 @@ CFileLoader::FindRelatedModelInfoCB(RpAtomic *atomic, void *data)
 	return atomic;
 }
 
+#ifdef LIBRW
+void
+InitClump(RpClump *clump)
+{
+	RpClumpForAllAtomics(clump, ConvertPlatformAtomic, nil);
+}
+#else
+#define InitClump(clump)
+#endif
+
 void
 CFileLoader::LoadModelFile(const char *filename)
 {
@@ -343,6 +352,7 @@ CFileLoader::LoadModelFile(const char *filename)
 	if(RwStreamFindChunk(stream, rwID_CLUMP, nil, nil)){
 		clump = RpClumpStreamRead(stream);
 		if(clump){
+			InitClump(clump);
 			RpClumpForAllAtomics(clump, FindRelatedModelInfoCB, clump);
 			RpClumpDestroy(clump);
 		}
@@ -368,6 +378,7 @@ CFileLoader::LoadClumpFile(const char *filename)
 			GetNameAndLOD(nodename, name, &n);
 			mi = (CClumpModelInfo*)CModelInfo::GetModelInfo(name, nil);
 			if(mi){
+				InitClump(clump);
 				assert(mi->IsClump());
 				mi->SetClump(clump);
 			}else
@@ -393,6 +404,7 @@ CFileLoader::LoadClumpFile(RwStream *stream, uint32 id)
 	if (mi->GetModelType() == MITYPE_PED && id != 0 && RwStreamFindChunk(stream, rwID_CLUMP, nil, nil)) {
 		// Read LOD ped
 		clump = RpClumpStreamRead(stream);
+		InitClump(clump);
 		if(clump){
 			((CPedModelInfo*)mi)->SetLowDetailClump(clump);
 			RpClumpDestroy(clump);
@@ -423,6 +435,7 @@ CFileLoader::FinishLoadClumpFile(RwStream *stream, uint32 id)
 	clump = RpClumpGtaStreamRead2(stream);
 
 	if(clump){
+		InitClump(clump);
 		mi = (CClumpModelInfo*)CModelInfo::GetModelInfo(id);
 		mi->SetClump(clump);
 		return true;
@@ -443,6 +456,7 @@ CFileLoader::LoadAtomicFile(RwStream *stream, uint32 id)
 		clump = RpClumpStreamRead(stream);
 		if(clump == nil)
 			return false;
+		InitClump(clump);
 		gpRelatedModelInfo = (CSimpleModelInfo*)CModelInfo::GetModelInfo(id);
 		RpClumpForAllAtomics(clump, SetRelatedModelInfoCB, clump);
 		RpClumpDestroy(clump);
@@ -806,6 +820,8 @@ CFileLoader::LoadAtomicFile2Return(const char *filename)
 	stream = RwStreamOpen(rwSTREAMFILENAME, rwSTREAMREAD, filename);
 	if(RwStreamFindChunk(stream, rwID_CLUMP, nil, nil))
 		clump = RpClumpStreamRead(stream);
+	if(clump)
+		InitClump(clump);
 	RwStreamClose(stream, nil);
 	return clump;
 }

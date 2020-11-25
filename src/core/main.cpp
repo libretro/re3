@@ -63,7 +63,9 @@
 #include "SceneEdit.h"
 #include "debugmenu.h"
 #include "Clock.h"
+#include "postfx.h"
 #include "custompipes.h"
+#include "screendroplets.h"
 #include "frontendoption.h"
 
 GlobalScene Scene;
@@ -89,7 +91,11 @@ RwRGBA gColourTop;
 bool gameAlreadyInitialised;
 
 float NumberOfChunksLoaded;
+#ifdef GTA_PS2
+#define TOTALNUMCHUNKS 48.0f
+#else
 #define TOTALNUMCHUNKS 73.0f
+#endif
 
 bool g_SlowMode = false;
 char version_name[64];
@@ -416,6 +422,9 @@ Initialise3D(void *param)
 #ifdef EXTENDED_PIPELINES
 		CustomPipes::CustomPipeInit();	// need Scene.world for this
 #endif
+#ifdef SCREEN_DROPLETS
+		ScreenDroplets::InitDraw();
+#endif
 		return ret;
 	}
 
@@ -425,6 +434,9 @@ Initialise3D(void *param)
 static void 
 Terminate3D(void)
 {
+#ifdef SCREEN_DROPLETS
+	ScreenDroplets::Shutdown();
+#endif
 #ifdef EXTENDED_PIPELINES
 	CustomPipes::CustomPipeShutdown();
 #endif
@@ -1086,9 +1098,9 @@ Idle(void *arg)
 	if((!FrontEndMenuManager.m_bMenuActive || FrontEndMenuManager.m_bRenderGameInMenu) &&
 	   TheCamera.GetScreenFadeStatus() != FADE_2)
 	{
-#ifdef GTA_PC
+		// This is from SA, but it's nice for windowed mode
+#if defined(GTA_PC) && !defined(RW_GL3)
 		if (!FrontEndMenuManager.m_bRenderGameInMenu) {
-			// This is from SA, but it's nice for windowed mode
 			RwV2d pos;
 			pos.x = SCREEN_WIDTH / 2.0f;
 			pos.y = SCREEN_HEIGHT / 2.0f;
@@ -1138,10 +1150,17 @@ Idle(void *arg)
 		RenderDebugShit();
 		RenderEffects();
 
-		tbStartTimer(0, "RenderMotionBlur");
 		if((TheCamera.m_BlurType == MOTION_BLUR_NONE || TheCamera.m_BlurType == MOTION_BLUR_LIGHT_SCENE) &&
 		   TheCamera.m_ScreenReductionPercentage > 0.0f)
 		        TheCamera.SetMotionBlurAlpha(150);
+
+#ifdef SCREEN_DROPLETS
+		CPostFX::GetBackBuffer(Scene.camera);
+		ScreenDroplets::Process();
+		ScreenDroplets::Render();
+#endif
+
+		tbStartTimer(0, "RenderMotionBlur");
 		TheCamera.RenderMotionBlur();
 		tbEndTimer("RenderMotionBlur");
 

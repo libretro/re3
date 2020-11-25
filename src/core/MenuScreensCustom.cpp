@@ -15,6 +15,7 @@
 #include "FileLoader.h"
 #include "Collision.h"
 #include "ModelInfo.h"
+#include "Pad.h"
 
 // Menu screens array is at the bottom of the file.
 
@@ -76,6 +77,12 @@
 	#define PIPELINES_SELECTOR
 #endif
 
+#ifdef INVERT_LOOK_FOR_PAD
+	#define INVERT_PAD_SELECTOR MENUACTION_CFO_SELECT, "FEC_IVP", { new CCFOSelect((int8*)&CPad::bInvertLook4Pad, "InvertPad", off_on, 2, false, nil) },
+#else
+	#define INVERT_PAD_SELECTOR
+#endif
+
 const char *filterNames[] = { "FEM_NON", "FEM_SIM", "FEM_NRM", "FEM_MOB" };
 const char *vehPipelineNames[] = { "FED_MFX", "FED_NEO" };
 const char *off_on[] = { "FEM_OFF", "FEM_ON" };
@@ -91,7 +98,7 @@ void RestoreDefGraphics(int8 action) {
 		FrontEndMenuManager.m_nPrefsMSAALevel = FrontEndMenuManager.m_nDisplayMSAALevel = 0;
 	#endif
 	#ifdef NO_ISLAND_LOADING
-	    	if (FrontEndMenuManager.m_bGameNotLoaded) {
+	    	if (!FrontEndMenuManager.m_bGameNotLoaded) {
 	    		FrontEndMenuManager.m_PrefsIslandLoading = FrontEndMenuManager.ISLAND_LOADING_LOW;
 			CCollision::bAlreadyLoaded = false;
 			CModelInfo::RemoveColModelsFromOtherLevels(CGame::currLevel);
@@ -780,6 +787,7 @@ CMenuScreenCustom aScreens[MENUPAGES] = {
    { "FET_MTI", MENUPAGE_CONTROLLER_PC, MENUPAGE_CONTROLLER_PC, nil, nil,
 	   MENUACTION_MOUSESENS,	"FEC_MSH",	{ nil, SAVESLOT_NONE, MENUPAGE_MOUSE_CONTROLS },
 	   MENUACTION_INVVERT,		"FEC_IVV",	{ nil, SAVESLOT_NONE, MENUPAGE_MOUSE_CONTROLS },
+       INVERT_PAD_SELECTOR
 	   MENUACTION_MOUSESTEER,	"FET_MST",	{ nil, SAVESLOT_NONE, MENUPAGE_MOUSE_CONTROLS },
 	   MENUACTION_CHANGEMENU,	"FEDS_TB",	{ nil, SAVESLOT_NONE, MENUPAGE_NONE },
    },

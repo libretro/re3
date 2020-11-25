@@ -1,13 +1,12 @@
-const char *im2d_vert_src =
+const char *im2d_UV2_vert_src =
 "uniform vec4 u_xform;\n"
 
-"layout(location = 0) in vec4 in_pos;\n"
-"layout(location = 2) in vec4 in_color;\n"
-"layout(location = 3) in vec2 in_tex0;\n"
+"VSIN(ATTRIB_POS)	vec4 in_pos;\n"
 
-"out vec4 v_color;\n"
-"out vec2 v_tex0;\n"
-"out float v_fog;\n"
+"VSOUT vec4 v_color;\n"
+"VSOUT vec2 v_tex0;\n"
+"VSOUT vec2 v_tex1;\n"
+"VSOUT float v_fog;\n"
 
 "void\n"
 "main(void)\n"
@@ -19,5 +18,6 @@ const char *im2d_vert_src =
 "	gl_Position.xyz *= gl_Position.w;\n"
 "	v_color = in_color;\n"
 "	v_tex0 = in_tex0;\n"
+"	v_tex1 = in_tex1;\n"
 "}\n"
 ;

@@ -177,6 +177,7 @@ enum Config {
 #	define GTA_PS2_STUFF
 #	define RANDOMSPLASH
 #	define VU_COLLISION
+#	define ANIM_COMPRESSION
 #elif defined GTA_PC
 #	define GTA3_1_1_PATCH
 //#	define GTA3_STEAM_PATCH
@@ -217,6 +218,11 @@ enum Config {
 #define COMPATIBLE_SAVES // this allows changing structs while keeping saves compatible
 #define LOAD_INI_SETTINGS // as the name suggests. fundamental for CUSTOM_FRONTEND_OPTIONS
 
+// Just debug menu entries
+#ifdef DEBUGMENU
+#define MISSION_SWITCHER // from debug menu
+#endif
+
 // Rendering/display
 //#define EXTRA_MODEL_FLAGS	// from mobile to optimize rendering
 //# define HARDCODED_MODEL_FLAGS	// sets the flags enabled above from hardcoded model names.
@@ -231,6 +237,14 @@ enum Config {
 #ifdef LIBRW
 //#define EXTENDED_COLOURFILTER		// more options for colour filter (replaces mblur)
 //#define EXTENDED_PIPELINES		// custom render pipelines (includes Neo)
+//#define SCREEN_DROPLETS			// neo water droplets
+#endif
+
+#ifndef EXTENDED_COLOURFILTER
+#undef SCREEN_DROPLETS		// we need the frontbuffer for this effect
+#endif
+#ifndef EXTENDED_PIPELINES
+#undef SCREEN_DROPLETS		// we need neo.txd
 #endif
 
 // Particle
@@ -256,6 +270,7 @@ enum Config {
 #define HUD_ENHANCEMENTS	// Adjusts some aspects to make the HUD look/behave a little bit better.
 // #define BETA_SLIDING_TEXT
 #define TRIANGULAR_BLIPS	// height indicating triangular radar blips, as in VC
+// #define XBOX_SUBTITLES	// the infamous outlines
 #define PC_MENU
 
 #ifndef PC_MENU
@@ -275,6 +290,7 @@ enum Config {
 #		define NO_ISLAND_LOADING  // disable loadscreen between islands via loading all island data at once, consumes more memory and CPU
 #		define CUTSCENE_BORDERS_SWITCH
 #		define MULTISAMPLING		// adds MSAA option
+#		define INVERT_LOOK_FOR_PAD // add bInvertLook4Pad from VC
 #	endif
 #endif
 
@@ -287,7 +303,7 @@ enum Config {
 #endif
 //#define SIMPLIER_MISSIONS // apply simplifications from mobile
 #define USE_ADVANCED_SCRIPT_DEBUG_OUTPUT
-#define SCRIPT_LOG_FILE_LEVEL 1 // 0 == no log, 1 == overwrite every frame, 2 == full log
+#define SCRIPT_LOG_FILE_LEVEL 0 // 0 == no log, 1 == overwrite every frame, 2 == full log
 
 #ifndef USE_ADVANCED_SCRIPT_DEBUG_OUTPUT
 #define USE_BASIC_SCRIPT_DEBUG_OUTPUT

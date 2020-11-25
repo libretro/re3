@@ -92,7 +92,10 @@ workspace "re3"
 
 	filter { "system:bsd" }
 		platforms {
-			"bsd-amd64-librw_gl3_glfw-oal"
+			"bsd-x86-librw_gl3_glfw-oal",
+			"bsd-amd64-librw_gl3_glfw-oal",
+			"bsd-arm-librw_gl3_glfw-oal",
+			"bsd-arm64-librw_gl3_glfw-oal"
 		}
 
 	filter { "system:macosx" }
@@ -231,6 +234,7 @@ project "re3"
 	files { addSrcFiles("src/audio") }
 	files { addSrcFiles("src/audio/eax") }
 	files { addSrcFiles("src/audio/oal") }
+	files { addSrcFiles("src/collision") }
 	files { addSrcFiles("src/control") }
 	files { addSrcFiles("src/core") }
 	files { addSrcFiles("src/entities") }
@@ -253,6 +257,7 @@ project "re3"
 	includedirs { "src/audio" }
 	includedirs { "src/audio/eax" }
 	includedirs { "src/audio/oal" }
+	includedirs { "src/collision" }
 	includedirs { "src/control" }
 	includedirs { "src/core" }
 	includedirs { "src/entities" }
@@ -305,7 +310,10 @@ project "re3"
 		linkoptions "/SAFESEH:NO"
 		characterset ("MBCS")
 		targetextension ".exe"
-		staticruntime "on"
+		if(_OPTIONS["with-librw"]) then
+			-- external librw is dynamic
+			staticruntime "on"
+		end
 
 	filter "platforms:win*glfw*"
 		staticruntime "off"
