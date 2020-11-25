@@ -5,7 +5,7 @@
 #include "Crime.h"
 #include "EventList.h"
 #include "PedIK.h"
-#include "PedStats.h"
+#include "PedType.h"
 #include "Physical.h"
 #include "Weapon.h"
 #include "WeaponInfo.h"
@@ -15,6 +15,7 @@
 #define FEET_OFFSET	1.04f
 #define CHECK_NEARBY_THINGS_MAX_DIST	15.0f
 #define ENTER_CAR_MAX_DIST	30.0f
+#define CAN_SEE_ENTITY_ANGLE_THRESHOLD	DEGTORAD(60.0f)
 
 class CAccident;
 class CObject;
@@ -451,9 +452,7 @@ public:
 	uint32 bVehExitWillBeInstant : 1;
 	uint32 bHasAlreadyBeenRecorded : 1;
 	uint32 bFallenDown : 1;
-#ifdef PED_SKIN
-	uint32 bDontAcceptIKLookAts : 1;	// TODO: find uses of this
-#endif
+	uint32 bDontAcceptIKLookAts : 1;
 	uint32 bReachedAttractorHeadingTarget : 1;
 	uint32 bTurnedAroundOnAttractor : 1;
 
@@ -513,10 +512,7 @@ public:
 	CEntity* m_pEventEntity;
 	float m_fAngleToEvent;
 	AnimBlendFrameData *m_pFrames[PED_NODE_MAX];
-#ifdef PED_SKIN
-	// stored inside the clump with non-skin ped
 	RpAtomic *m_pWeaponModel;
-#endif
 	AssocGroupId m_animGroup;
 	CAnimBlendAssociation *m_pVehicleAnim;
 	CVector2D m_vecAnimMoveDelta;
@@ -579,8 +575,7 @@ public:
 	CAccident *m_lastAccident;
 	uint32 m_nPedType;
 	CPedStats *m_pedStats;
-	float m_fleeFromPosX;
-	float m_fleeFromPosY;
+	CVector2D m_fleeFromPos;
 	CEntity *m_fleeFrom;
 	uint32 m_fleeTimer;
 	CEntity* m_threatEx; // TODO(Miami): What is this?
@@ -647,8 +642,8 @@ public:
 	uint16 m_queuedSound;
 	bool m_canTalk;
 	uint32 m_lastComment;
-	CVector m_vecSeekPosEx; // used for OBJECTIVE_GUARD_SPOT
-	float m_distanceToCountSeekDoneEx; // used for OBJECTIVE_GUARD_SPOT
+	CVector m_vecSpotToGuard;
+	float m_radiusToGuard;
 
 	static void *operator new(size_t);
 	static void *operator new(size_t, int);
@@ -658,6 +653,7 @@ public:
 	CPed(uint32 pedType);
 	~CPed(void);
 
+	void DeleteRwObject();
 	void SetModelIndex(uint32 mi);
 	void ProcessControl(void);
 	void Teleport(CVector);
@@ -703,11 +699,11 @@ public:
 	void PlayFootSteps(void);
 	void QuitEnteringCar(void);
 	void BuildPedLists(void);
-	int32 GiveWeapon(eWeaponType weaponType, uint32 ammo, bool unused = false);
+	int32 GiveWeapon(eWeaponType weaponType, uint32 ammo, bool unused = true);
 	void CalculateNewOrientation(void);
 	float WorkOutHeadingForMovingFirstPerson(float);
 	void CalculateNewVelocity(void);
-	bool CanSeeEntity(CEntity*, float);
+	bool CanSeeEntity(CEntity*, float threshold = CAN_SEE_ENTITY_ANGLE_THRESHOLD);
 	void RestorePreviousObjective(void);
 	void SetIdle(void);
 #ifdef _MSC_VER
@@ -777,6 +773,7 @@ public:
 	void SetFall(int, AnimationId, uint8);
 	void SetFlee(CEntity*, int);
 	void SetFlee(CVector2D const &, int);
+	void RemoveDrivebyAnims(void);
 	void RemoveInCarAnims(void);
 	void CollideWithPed(CPed*);
 	void SetDirectionToWalkAroundObject(CEntity*);
@@ -913,7 +910,7 @@ public:
 	static void PedAnimShuffleCB(CAnimBlendAssociation *assoc, void *arg);
 	static void PedSetGetInCarPositionCB(CAnimBlendAssociation* assoc, void* arg);
 
-	bool IsPlayer(void);
+	bool IsPlayer(void) const;
 	bool IsFemale(void) { return m_nPedType == PEDTYPE_CIVFEMALE || m_nPedType == PEDTYPE_PROSTITUTE; }
 	bool UseGroundColModel(void);
 	bool CanSetPedState(void);
@@ -933,7 +930,7 @@ public:
 	void SetStoredObjective(void);
 	void SetLeader(CEntity* leader);
 	void SetPedStats(ePedStats);
-	bool IsGangMember(void);
+	bool IsGangMember(void) const;
 	void Die(void);
 #ifdef GTA_TRAIN
 	void EnterTrain(void);
@@ -959,7 +956,7 @@ public:
 	void UpdatePosition(void);
 	CObject *SpawnFlyingComponent(int, int8);
 	void SetCarJack_AllClear(CVehicle*, uint32, uint32);
-	bool CanPedJumpThis(CEntity*, CVector*);
+	bool CanPedJumpThis(CEntity *unused, CVector *damageNormal = nil);
 	void SetNewAttraction(CPedAttractor* pAttractor, const CVector& pos, float, float, int);
 	void ClearWaitState(void);
 	void Undress(const char*);
@@ -989,7 +986,7 @@ public:
 	bool Driving(void) { return m_nPedState == PED_DRIVING; }
 	bool InVehicle(void) { return bInVehicle && m_pMyVehicle; } // True when ped is sitting/standing in vehicle, not in enter/exit state.
 	bool EnteringCar(void) { return m_nPedState == PED_ENTER_CAR || m_nPedState == PED_CARJACK; }
-	bool HasAttractor(void) { return m_attractor != nil; }
+	bool HasAttractor(void);
 	bool IsUseAttractorObjective(eObjective obj) {
 		return obj == OBJECTIVE_GOTO_ATM_ON_FOOT || obj == OBJECTIVE_GOTO_ICE_CREAM_VAN_ON_FOOT ||
 			obj == OBJECTIVE_GOTO_PIZZA_ON_FOOT || obj == OBJECTIVE_GOTO_SEAT_ON_FOOT ||
@@ -998,7 +995,10 @@ public:
 
 	void ReplaceWeaponWhenExitingVehicle(void);
 	void RemoveWeaponWhenEnteringVehicle(void);
-	bool IsNotInWreckedVehicle();
+	bool IsNotInWreckedVehicle()
+	{
+		return m_pMyVehicle != nil && ((CEntity*)m_pMyVehicle)->GetStatus() != STATUS_WRECKED;
+	}
 
 	// My names. Inlined in VC
 	AnimationId GetFireAnimNotDucking(CWeaponInfo* weapon) {

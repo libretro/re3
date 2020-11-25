@@ -1,5 +1,6 @@
 ﻿#include "common.h"
 
+#include "main.h"
 #include "General.h"
 #include "Timecycle.h"
 #include "Weather.h"
@@ -62,9 +63,9 @@ CBoat::CBoat(int mi, uint8 owner) : CVehicle(owner)
 	m_nPoliceShoutTimer = CTimer::GetTimeInMilliseconds();
 	SetModelIndex(mi);
 
-	pHandling = mod_HandlingManager.GetHandlingData((eHandlingId)minfo->m_handlingId);
-	pFlyingHandling = mod_HandlingManager.GetFlyingPointer((eHandlingId)minfo->m_handlingId);
-	pBoatHandling = mod_HandlingManager.GetBoatPointer((eHandlingId)minfo->m_handlingId);
+	pHandling = mod_HandlingManager.GetHandlingData((tVehicleType)minfo->m_handlingId);
+	pFlyingHandling = mod_HandlingManager.GetFlyingPointer((tVehicleType)minfo->m_handlingId);
+	pBoatHandling = mod_HandlingManager.GetBoatPointer((tVehicleType)minfo->m_handlingId);
 	minfo->ChooseVehicleColour(m_currentColour1, m_currentColour2);
 
 	m_fMass = pHandling->fMass;
@@ -1100,6 +1101,15 @@ CBoat::Render()
 	m_nSetPieceExtendedRangeTime = CTimer::GetTimeInMilliseconds() + 3000;
 	if (!CVehicle::bWheelsOnlyCheat)
 		CEntity::Render();
+#ifdef NEW_RENDERER
+	if(!gbNewRenderer)
+#endif
+	RenderWaterOutPolys();	// not separate function in VC
+}
+
+void
+CBoat::RenderWaterOutPolys(void)
+{
 	if(GetModelIndex() == MI_SKIMMER)
 		return;
 	KeepWaterOutIndices[0] = 0;
@@ -1178,11 +1188,16 @@ CBoat::Render()
 	KeepWaterOutVertices[2].v = 1.0f;
 	KeepWaterOutVertices[3].u = 1.0f;
 	KeepWaterOutVertices[3].v = 1.0f;
+#ifdef NEW_RENDERER
+	if(!gbNewRenderer)
+#endif
+{
 	RwRenderStateSet(rwRENDERSTATETEXTURERASTER, gpWaterRaster);
 	RwRenderStateSet(rwRENDERSTATEVERTEXALPHAENABLE, (void*)TRUE);
 	RwRenderStateSet(rwRENDERSTATEFOGENABLE, (void*)FALSE);
 	RwRenderStateSet(rwRENDERSTATESRCBLEND, (void*)rwBLENDZERO);
 	RwRenderStateSet(rwRENDERSTATEDESTBLEND, (void*)rwBLENDONE);
+}
 	if (!CVehicle::bWheelsOnlyCheat && RwIm3DTransform(KeepWaterOutVertices, 4, GetMatrix().m_attachment, rwIM3D_VERTEXUV)) {
 		RwIm3DRenderIndexedPrimitive(rwPRIMTYPETRILIST, KeepWaterOutIndices, 6);
 		RwIm3DEnd();
@@ -1209,9 +1224,14 @@ CBoat::Render()
 			RwIm3DEnd();
 		}
 	}
+#ifdef NEW_RENDERER
+	if(!gbNewRenderer)
+#endif
+{
 	RwRenderStateSet(rwRENDERSTATEFOGENABLE, (void*)TRUE);
 	RwRenderStateSet(rwRENDERSTATESRCBLEND, (void*)rwBLENDSRCALPHA);
 	RwRenderStateSet(rwRENDERSTATEDESTBLEND, (void*)rwBLENDINVSRCALPHA);
+}
 }
 
 void

@@ -246,8 +246,17 @@ enum Config {
 #ifdef LIBRW
 //#define EXTENDED_COLOURFILTER		// more options for colour filter (replaces mblur)
 //#define EXTENDED_PIPELINES		// custom render pipelines (includes Neo)
+//#define SCREEN_DROPLETS			// neo water droplets
+//#define NEW_RENDERER		// leeds-like world rendering, needs librw
 #endif
 //#define MULTISAMPLING		// adds MSAA option TODO
+
+#ifndef EXTENDED_COLOURFILTER
+#undef SCREEN_DROPLETS		// we need the front- (or back-)buffer for this effect
+#endif
+#ifndef EXTENDED_PIPELINES
+#undef SCREEN_DROPLETS		// we need neo.txd
+#endif
 
 #ifdef LIBRW
 // these are not supported with librw yet
@@ -286,13 +295,14 @@ enum Config {
 #	define PS2_MENU
 //#	define PS2_MENU_USEALLPAGEICONS
 #else
-#	define MAP_ENHANCEMENTS			// Adding waypoint etc.
+#	define MAP_ENHANCEMENTS			// Adding waypoint and better mouse support
 #	define TRIANGLE_BACK_BUTTON
 //#	define CIRCLE_BACK_BUTTON
 //#define CUSTOM_FRONTEND_OPTIONS
 #	define GRAPHICS_MENU_OPTIONS
 #define LEGACY_MENU_OPTIONS
 #define MUCH_SHORTER_OUTRO_SCREEN
+// #define XBOX_MESSAGE_SCREEN			// Blue background, no "saved successfully press OK" screen etc.
 
 // Script
 #define USE_DEBUG_SCRIPT_LOADER	// Loads main.scm by default. Hold R for main_freeroam.scm and D for main_d.scm

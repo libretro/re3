@@ -93,6 +93,7 @@
 #include "WaterCreatures.h"
 #include "postfx.h"
 #include "custompipes.h"
+#include "screendroplets.h"
 
 eLevelName CGame::currLevel;
 int32 CGame::currArea;
@@ -401,6 +402,9 @@ bool CGame::Initialise(const char* datFile)
 	CPed::Initialise();
 	CRouteNode::Initialise();
 	CEventList::Initialise();
+#ifdef SCREEN_DROPLETS
+	ScreenDroplets::Initialise();
+#endif
 	LoadingScreen("Loading the Game", "Find big buildings", nil);
 	CRenderer::Init();
 	LoadingScreen("Loading the Game", "Setup game variables", nil);
@@ -568,6 +572,9 @@ void CGame::ReInitGameObjectVariables(void)
 	currArea = AREA_MAIN_MAP;
 	CPed::Initialise();
 	CEventList::Initialise();
+#ifdef SCREEN_DROPLETS
+	ScreenDroplets::Initialise();
+#endif
 	CWeapon::InitialiseWeapons();
 	CPopulation::Initialise();
 	
@@ -667,8 +674,10 @@ void CGame::InitialiseWhenRestarting(void)
 	if (b_FoundRecentSavedGameWantToLoad || FrontEndMenuManager.m_bWantToLoad)
 	{
 		LoadSplash("splash1");
+#ifndef XBOX_MESSAGE_SCREEN
 		if (FrontEndMenuManager.m_bWantToLoad)
 			FrontEndMenuManager.MessageScreen("FELD_WR", true);
+#endif
 	}
 
 	b_FoundRecentSavedGameWantToLoad = false;
@@ -677,6 +686,14 @@ void CGame::InitialiseWhenRestarting(void)
 	
 	if ( FrontEndMenuManager.m_bWantToLoad == true )
 	{
+#ifdef XBOX_MESSAGE_SCREEN
+		FrontEndMenuManager.SetDialogTimer(1000);
+		DoRWStuffStartOfFrame(0, 0, 0, 0, 0, 0, 0);
+		CSprite2d::InitPerFrame();
+		CFont::InitPerFrame();
+		FrontEndMenuManager.DrawOverlays();
+		DoRWStuffEndOfFrame();
+#endif
 		RestoreForStartLoad();
 	}
 	
@@ -710,6 +727,9 @@ void CGame::InitialiseWhenRestarting(void)
 			currLevel = LEVEL_GENERIC;
 			CCollision::SortOutCollisionAfterLoad();
 		}
+#ifdef XBOX_MESSAGE_SCREEN
+		FrontEndMenuManager.ProcessDialogTimer();
+#endif
 	}
 	
 	CTimer::Update();

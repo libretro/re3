@@ -140,18 +140,12 @@ ModifyStringLabelForControlSetting(char *str)
 	}
 }
 
-inline bool
-IsWeaponSlotAmmoMergeable(uint32 slot)
-{
-	return slot == WEAPONSLOT_SHOTGUN || slot == WEAPONSLOT_SUBMACHINEGUN || slot == WEAPONSLOT_RIFLE;
-}
-
 void
 CPickup::ExtractAmmoFromPickup(CPlayerPed *player)
 {
 	eWeaponType weaponType = CPickups::WeaponForModel(m_pObject->GetModelIndex());
 	
-	if (m_eType == PICKUP_IN_SHOP || !IsWeaponSlotAmmoMergeable(CWeaponInfo::GetWeaponInfo(weaponType)->m_nWeaponSlot))
+	if (m_eType == PICKUP_IN_SHOP || !CWeaponInfo::IsWeaponSlotAmmoMergeable(CWeaponInfo::GetWeaponInfo(weaponType)->m_nWeaponSlot))
 		return;
 
 	uint32 ammo = m_nQuantity;
@@ -374,14 +368,14 @@ CPickup::Update(CPlayerPed *player, CVehicle *vehicle, int playerId)
 				eWeaponType plrWeaponSlot = FindPlayerPed()->GetWeapon(slot).m_eWeaponType;
 				if (plrWeaponSlot != weaponType) {
 					if (CStreaming::ms_aInfoForModel[m_pObject->GetModelIndex()].m_loadState == STREAMSTATE_LOADED) {
-						if (plrWeaponSlot == WEAPONTYPE_UNARMED || (FindPlayerPed()->GetWeapon(slot).m_nAmmoTotal == 0 && !IsWeaponSlotAmmoMergeable(slot))) {
+						if (plrWeaponSlot == WEAPONTYPE_UNARMED || (FindPlayerPed()->GetWeapon(slot).m_nAmmoTotal == 0 && !CWeaponInfo::IsWeaponSlotAmmoMergeable(slot))) {
 							if (CTimer::GetTimeInMilliseconds() - FindPlayerPed()->m_nPadDownPressedInMilliseconds < 1500) {
 								CPickups::PlayerOnWeaponPickup = 6;
 								isPickupTouched = false;
 							}
 						} else {
 							CPickups::PlayerOnWeaponPickup = 6;
-							if (IsWeaponSlotAmmoMergeable(slot)) {
+							if (CWeaponInfo::IsWeaponSlotAmmoMergeable(slot)) {
 								if (m_eType == PICKUP_ONCE_TIMEOUT || m_eType == PICKUP_ONCE || m_eType == PICKUP_ON_STREET) {
 									ExtractAmmoFromPickup(player);
 									FindPlayerPed()->GetWeapon(slot).Reload();
@@ -1384,7 +1378,7 @@ void
 CPickups::RemoveAllPickupsOfACertainWeaponGroupWithNoAmmo(eWeaponType weaponType)
 {
 	uint32 weaponSlot = CWeaponInfo::GetWeaponInfo(weaponType)->m_nWeaponSlot;
-	if (IsWeaponSlotAmmoMergeable(weaponSlot)) {
+	if (CWeaponInfo::IsWeaponSlotAmmoMergeable(weaponSlot)) {
 		for (int slot = 0; slot < NUMPICKUPS; slot++) {
 			if (aPickUps[slot].m_eType == PICKUP_ONCE || aPickUps[slot].m_eType == PICKUP_ONCE_TIMEOUT || aPickUps[slot].m_eType == PICKUP_ONCE_TIMEOUT_SLOW) {
 				if (aPickUps[slot].m_pObject) {
@@ -1408,6 +1402,20 @@ CPickups::DetonateMinesHitByGunShot(CVector *vec1, CVector *vec2)
 	for (int i = 0; i < NUMGENERALPICKUPS; i++) {
 		if (aPickUps[i].m_eType == PICKUP_NAUTICAL_MINE_ARMED)
 			aPickUps[i].ProcessGunShot(vec1, vec2);
+	}
+}
+
+void
+CPickups::RemoveUnnecessaryPickups(const CVector& center, float radius)
+{
+	for (int i = 0; i < NUMPICKUPS; i++) {
+		if (aPickUps[i].m_eType == PICKUP_ONCE_TIMEOUT || aPickUps[i].m_eType == PICKUP_MONEY) {
+			if (Distance(center, aPickUps[i].m_vecPos) < radius) {
+				aPickUps[i].GetRidOfObjects();
+				aPickUps[i].m_bRemoved = true;
+				aPickUps[i].m_eType = PICKUP_NONE;
+			}
+		}
 	}
 }
 
@@ -1563,4 +1571,103 @@ CPacManPickups::QueryPowerPillsCarriedByPlayer()
 void
 CPacManPickups::ResetPowerPillsCarriedByPlayer()
 {
+}
+
+// --MIAMI: Done
+void
+CPed::CreateDeadPedMoney(void)
+{
+	if (!CGame::nastyGame)
+		return;
+
+	int mi = GetModelIndex();
+
+	if ((mi >= MI_COP && mi <= MI_FIREMAN) || (CharCreatedBy == MISSION_CHAR && !bMoneyHasBeenGivenByScript) || bInVehicle)
+		return;
+
+	int money = m_nPedMoney;
+	if (money < 10)
+		return;
+
+	CVector pickupPos = GetPosition();
+	CPickups::CreateSomeMoney(pickupPos, money);
+	m_nPedMoney = 0;
+}
+
+// --MIAMI: Done
+void
+CPed::CreateDeadPedWeaponPickups(void)
+{
+	CVector pickupPos;
+
+	if (bInVehicle)
+		return;
+
+	for(int i = 0; i < TOTAL_WEAPON_SLOTS; i++) {
+
+		eWeaponType weapon = GetWeapon(i).m_eWeaponType;
+		int weaponAmmo = GetWeapon(i).m_nAmmoTotal;
+		if (weapon == WEAPONTYPE_UNARMED || weapon == WEAPONTYPE_DETONATOR || (weaponAmmo == 0 && !GetWeapon(i).IsTypeMelee()))
+			continue;
+
+		int quantity = Min(weaponAmmo, AmmoForWeapon_OnStreet[weapon] / 2);
+		CreateDeadPedPickupCoors(&pickupPos.x, &pickupPos.y, &pickupPos.z);
+		pickupPos.z += 0.3f;
+		if (!CPickups::TryToMerge_WeaponType(pickupPos, weapon, PICKUP_ONCE_TIMEOUT, quantity, false)) {
+			CPickups::GenerateNewOne_WeaponType(pickupPos, weapon, PICKUP_ONCE_TIMEOUT, Min(weaponAmmo, quantity));
+		}
+	}
+	ClearWeapons();
+}
+
+// --MIAMI: Done
+void
+CPed::CreateDeadPedPickupCoors(float *x, float *y, float *z)
+{
+	bool found = false;
+	CVector pickupPos;
+
+#define NUMBER_OF_ATTEMPTS 32
+	for (int i = 0; i < NUMBER_OF_ATTEMPTS; i++) {
+
+		pickupPos = GetPosition();
+		pickupPos.x = 1.5f * Sin((CGeneral::GetRandomNumber() % 256)/256.0f * TWOPI) + GetPosition().x;
+		pickupPos.y = 1.5f * Cos((CGeneral::GetRandomNumber() % 256)/256.0f * TWOPI) + GetPosition().y;
+		pickupPos.z = CWorld::FindGroundZFor3DCoord(pickupPos.x, pickupPos.y, pickupPos.z, &found) + 0.5f;
+
+		if (!found)
+			continue;
+
+		CVector pedPos = GetPosition();
+		pedPos.z += 0.3f;
+
+		CVector pedToPickup = pickupPos - pedPos;
+		float distance = pedToPickup.Magnitude();
+
+		// outer edge of pickup
+		distance = (distance + 0.4f) / distance;
+		CVector pickupPos2 = pedPos;
+		pickupPos2 += distance * pedToPickup;
+
+		if ((pickupPos - FindPlayerCoors()).Magnitude2D() > 2.0f || i > NUMBER_OF_ATTEMPTS / 2) {
+
+			if (i > NUMBER_OF_ATTEMPTS / 2 || !CPickups::TestForPickupsInBubble(pickupPos, 1.3f)) {
+
+				if (CWorld::GetIsLineOfSightClear(pickupPos2, pedPos,
+					true, i < NUMBER_OF_ATTEMPTS / 2, false, i < NUMBER_OF_ATTEMPTS / 2, false, false, false)) {
+
+					if (i > NUMBER_OF_ATTEMPTS / 2 || !CWorld::TestSphereAgainstWorld(pickupPos, 1.2f, nil, false, true, false, false, false, false)) {
+						*x = pickupPos.x;
+						*y = pickupPos.y;
+						*z = pickupPos.z;
+						return;
+					}
+				}
+			}
+		}
+	}
+	*x = GetPosition().x;
+	*y = GetPosition().y;
+	*z = GetPosition().z + 0.4f;
+#undef NUMBER_OF_ATTEMPTS
 }

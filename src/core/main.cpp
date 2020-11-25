@@ -68,7 +68,9 @@
 #include "Clock.h"
 #include "Occlusion.h"
 #include "Ropes.h"
+#include "postfx.h"
 #include "custompipes.h"
+#include "screendroplets.h"
 
 GlobalScene Scene;
 
@@ -105,6 +107,13 @@ void TheGame(void);
 
 #ifdef DEBUGMENU
 void DebugMenuPopulate(void);
+#endif
+
+#ifdef NEW_RENDERER
+bool gbNewRenderer;
+#define CLEARMODE (rwCAMERACLEARZ | rwCAMERACLEARSTENCIL)
+#else
+#define CLEARMODE (rwCAMERACLEARZ)
 #endif
 
 void
@@ -151,7 +160,7 @@ DoRWStuffStartOfFrame(int16 TopRed, int16 TopGreen, int16 TopBlue, int16 BottomR
 	CDraw::CalculateAspectRatio();
 	CameraSize(Scene.camera, nil, SCREEN_VIEWWINDOW, SCREEN_ASPECT_RATIO);
 	CVisibilityPlugins::SetRenderWareCamera(Scene.camera);
-	RwCameraClear(Scene.camera, &TopColor.rwRGBA, rwCAMERACLEARZ);
+	RwCameraClear(Scene.camera, &TopColor.rwRGBA, CLEARMODE);
 
 	if(!RsCameraBeginUpdate(Scene.camera))
 		return false;
@@ -170,7 +179,7 @@ DoRWStuffStartOfFrame_Horizon(int16 TopRed, int16 TopGreen, int16 TopBlue, int16
 	CDraw::CalculateAspectRatio();
 	CameraSize(Scene.camera, nil, SCREEN_VIEWWINDOW, SCREEN_ASPECT_RATIO);
 	CVisibilityPlugins::SetRenderWareCamera(Scene.camera);
-	RwCameraClear(Scene.camera, &gColourTop, rwCAMERACLEARZ);
+	RwCameraClear(Scene.camera, &gColourTop, CLEARMODE);
 
 	if(!RsCameraBeginUpdate(Scene.camera))
 		return false;
@@ -395,6 +404,9 @@ Initialise3D(void *param)
 #ifdef EXTENDED_PIPELINES
 		CustomPipes::CustomPipeInit();	// need Scene.world for this
 #endif
+#ifdef SCREEN_DROPLETS
+		ScreenDroplets::InitDraw();
+#endif
 		return ret;
 	}
 
@@ -404,6 +416,9 @@ Initialise3D(void *param)
 static void 
 Terminate3D(void)
 {
+#ifdef SCREEN_DROPLETS
+	ScreenDroplets::Shutdown();
+#endif
 #ifdef EXTENDED_PIPELINES
 	CustomPipes::CustomPipeShutdown();
 #endif
@@ -849,9 +864,130 @@ DisplayGameDebugText()
 }
 #endif
 
+#ifdef NEW_RENDERER
+bool gbRenderRoads = true;
+bool gbRenderEverythingBarRoads = true;
+bool gbRenderFadingInUnderwaterEntities = true;
+bool gbRenderFadingInEntities = true;
+bool gbRenderWater = true;
+bool gbRenderBoats = true;
+bool gbRenderVehicles = true;
+bool gbRenderWorld0 = true;
+bool gbRenderWorld1 = true;
+bool gbRenderWorld2 = true;
+
+void
+MattRenderScene(void)
+{
+	// this calls CMattRenderer::Render
+	CWorld::AdvanceCurrentScanCode();
+	// CMattRenderer::ResetRenderStates
+	CRenderer::ClearForFrame();
+	// CClock::CalcEnvMapTimeMultiplicator
+	CWaterLevel::RenderWater();	// actually CMattRenderer::RenderWater
+	// CClock::ms_EnvMapTimeMultiplicator = 1.0f;
+	// cWorldStream::ClearDynamics
+	CRenderer::ConstructRenderList();
+if(gbRenderWorld0)
+	CRenderer::RenderWorld(0);	// roads
+	// CMattRenderer::ResetRenderStates
+	CRenderer::PreRender();
+	CCoronas::RenderReflections();
+if(gbRenderWorld1)
+	CRenderer::RenderWorld(1);	// opaque
+if(gbRenderRoads)
+	CRenderer::RenderRoads();
+
+	CRenderer::RenderPeds();
+
+	// not sure where to put these since LCS has no underwater entities
+if(gbRenderBoats)
+	CRenderer::RenderBoats();
+if(gbRenderFadingInUnderwaterEntities)
+	CRenderer::RenderFadingInUnderwaterEntities();
+if(gbRenderWater)
+	CRenderer::RenderTransparentWater();
+
+if(gbRenderEverythingBarRoads)
+	CRenderer::RenderEverythingBarRoads();
+	// get env map here?
+	// moved this:
+	// CRenderer::RenderFadingInEntities();
+}
+
+void
+RenderScene_new(void)
+{
+	CClouds::Render();
+	DoRWRenderHorizon();
+
+	MattRenderScene();
+	DefinedState();
+	// CMattRenderer::ResetRenderStates
+	// moved CRenderer::RenderBoats to before transparent water
+}
+
+// TODO
+bool FredIsInFirstPersonCam(void) { return true; }	// this seems to give the best result in all cases
+
+void
+RenderEffects_new(void)
+{
+	CShadows::RenderStaticShadows();
+	// CRenderer::GenerateEnvironmentMap
+	CShadows::RenderStoredShadows();
+	CSkidmarks::Render();
+	CRubbish::Render();
+
+	// these aren't really effects
+	DefinedState();
+	if(FredIsInFirstPersonCam()){
+		DefinedState();
+		C3dMarkers::Render();	// normally rendered in CSpecialFX::Render()
+if(gbRenderWorld2)
+		CRenderer::RenderWorld(2);	// transparent
+if(gbRenderVehicles)
+		CRenderer::RenderVehicles();
+	}else{
+if(gbRenderVehicles)
+		CRenderer::RenderVehicles();
+if(gbRenderWorld2)
+		CRenderer::RenderWorld(2);	// transparent
+	}
+	// better render these after transparent world
+if(gbRenderFadingInEntities)
+	CRenderer::RenderFadingInEntities();
+
+	// actual effects here
+	CGlass::Render();
+	// CMattRenderer::ResetRenderStates
+	DefinedState();
+	CCoronas::RenderSunReflection();
+	CWeather::RenderRainStreaks();
+	// CWeather::AddSnow
+	CWaterCannons::Render();
+	CAntennas::Render();
+	CSpecialFX::Render();
+	CRopes::Render();
+	CCoronas::Render();
+	CParticle::Render();
+	CPacManPickups::Render();
+	CWeaponEffects::Render();
+	CPointLights::RenderFogEffect();
+	CMovingThings::Render();
+	CRenderer::RenderFirstPersonVehicle();
+}
+#endif
+
 void
 RenderScene(void)
 {
+#ifdef NEW_RENDERER
+	if(gbNewRenderer){
+		RenderScene_new();
+		return;
+	}
+#endif
 	CClouds::Render();
 	DoRWRenderHorizon();
 	CRenderer::RenderRoads();
@@ -885,6 +1021,12 @@ RenderDebugShit(void)
 void
 RenderEffects(void)
 {
+#ifdef NEW_RENDERER
+	if(gbNewRenderer){
+		RenderEffects_new();
+		return;
+	}
+#endif
 	CGlass::Render();
 	CWaterCannons::Render();
 	CSpecialFX::Render();
@@ -1054,13 +1196,17 @@ Idle(void *arg)
 
 	if(!FrontEndMenuManager.m_bMenuActive && TheCamera.GetScreenFadeStatus() != FADE_2)
 	{
-#ifdef GTA_PC
-			// This is from SA, but it's nice for windowed mode
-			RwV2d pos;
-			pos.x = SCREEN_WIDTH / 2.0f;
-			pos.y = SCREEN_HEIGHT / 2.0f;
-			RsMouseSetPos(&pos);
+		// This is from SA, but it's nice for windowed mode
+#if defined(GTA_PC) && !defined(RW_GL3)
+		RwV2d pos;
+		pos.x = SCREEN_WIDTH / 2.0f;
+		pos.y = SCREEN_HEIGHT / 2.0f;
+		RsMouseSetPos(&pos);
 #endif
+#ifdef NEW_RENDERER
+	if(!gbNewRenderer)
+#endif
+{
 		tbStartTimer(0, "CnstrRenderList");
 #ifdef PC_WATER
 		CWaterLevel::PreCalcWaterGeometry();
@@ -1071,6 +1217,7 @@ Idle(void *arg)
 		tbStartTimer(0, "PreRender");
 		CRenderer::PreRender();
 		tbEndTimer("PreRender");
+}
 
 #ifdef FIX_BUGS
 		RwRenderStateSet(rwRENDERSTATEZWRITEENABLE, (void *)FALSE); // TODO: temp? this fixes OpenGL render but there should be a better place for this
@@ -1107,10 +1254,17 @@ Idle(void *arg)
 		RenderDebugShit();
 		RenderEffects();
 
-		tbStartTimer(0, "RenderMotionBlur");
 		if((TheCamera.m_BlurType == MOTION_BLUR_NONE || TheCamera.m_BlurType == MOTION_BLUR_LIGHT_SCENE) &&
 		   TheCamera.m_ScreenReductionPercentage > 0.0f)
 		        TheCamera.SetMotionBlurAlpha(150);
+
+#ifdef SCREEN_DROPLETS
+		CPostFX::GetBackBuffer(Scene.camera);
+		ScreenDroplets::Process();
+		ScreenDroplets::Render();
+#endif
+
+		tbStartTimer(0, "RenderMotionBlur");
 		TheCamera.RenderMotionBlur();
 		tbEndTimer("RenderMotionBlur");
 
@@ -1125,7 +1279,7 @@ Idle(void *arg)
 		CameraSize(Scene.camera, nil, SCREEN_VIEWWINDOW, DEFAULT_ASPECT_RATIO);
 #endif
 		CVisibilityPlugins::SetRenderWareCamera(Scene.camera);
-		RwCameraClear(Scene.camera, &gColourTop, rwCAMERACLEARZ);
+		RwCameraClear(Scene.camera, &gColourTop, CLEARMODE);
 		if(!RsCameraBeginUpdate(Scene.camera))
 			return;
 	}
@@ -1147,7 +1301,9 @@ Idle(void *arg)
 	Render2dStuffAfterFade();
 	tbEndTimer("Render2dStuff-Fade");
 	// CCredits::Render(); // They added it to function above and also forgot it here
-
+#ifdef XBOX_MESSAGE_SCREEN
+	FrontEndMenuManager.DrawOverlays();
+#endif
 
 	if (gbShowTimebars)
 		tbDisplay();
@@ -1174,12 +1330,15 @@ FrontendIdle(void)
 
 	CameraSize(Scene.camera, nil, SCREEN_VIEWWINDOW, SCREEN_ASPECT_RATIO);
 	CVisibilityPlugins::SetRenderWareCamera(Scene.camera);
-	RwCameraClear(Scene.camera, &gColourTop, rwCAMERACLEARZ);
+	RwCameraClear(Scene.camera, &gColourTop, CLEARMODE);
 	if(!RsCameraBeginUpdate(Scene.camera))
 		return;
 
 	DefinedState(); // seems redundant, but breaks resolution change.
 	RenderMenus();
+#ifdef XBOX_MESSAGE_SCREEN
+	FrontEndMenuManager.DrawOverlays();
+#endif
 	DoFade();
 	Render2dStuffAfterFade();
 	CFont::DrawFonts();
@@ -1450,7 +1609,7 @@ void TheGame(void)
 			{
 				CameraSize(Scene.camera, NULL, SCREEN_VIEWWINDOW, SCREEN_ASPECT_RATIO);
 				CVisibilityPlugins::SetRenderWareCamera(Scene.camera);
-				RwCameraClear(Scene.camera, &gColourTop, rwCAMERACLEARZ);
+				RwCameraClear(Scene.camera, &gColourTop, CLEARMODE);
 				if (!RsCameraBeginUpdate(Scene.camera))
 					break;
 			}
